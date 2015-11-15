@@ -1,8 +1,9 @@
-// Package mbuckets provides a thin wrapper over Bolt DB.
-// It allows easy operations on nested buckets.
-//
-// See https://github.com/boltdb/bolt for Bolt DB.
+/*
+Package mbuckets provides a thin wrapper over Bolt DB.
+It allows easy operations on nested buckets.
 
+See https://github.com/boltdb/bolt for Bolt DB.
+*/
 package mbuckets
 
 import (
@@ -13,14 +14,12 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-// Represents an mbuckets DB.
-// Embeds a bolt.DB struct.
+// DB embeds a bolt.DB
 type DB struct {
 	*bolt.DB
 }
 
-// Creates/Opens a bolt.DB at specified path,
-// and returns an mbuckets DB enclosing the same.
+// Open creates/opens a bolt.DB at specified path, and returns a DB enclosing the same
 func Open(path string) (*DB, error) {
 	database, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
@@ -30,19 +29,19 @@ func Open(path string) (*DB, error) {
 	return &DB{database}, nil
 }
 
-// Closes the embedded bolt.DB
+// Close closes the embedded bolt.DB
 func (db *DB) Close() error {
 	return db.DB.Close()
 }
 
-// Perform an operation on all root buckets in the DB
+// Map applies read only function `fn` on all the top level buckets in this DB
 func (db *DB) Map(fn func([]byte, *bolt.Bucket) error) error {
 	return db.View(func(tx *bolt.Tx) error {
 		return tx.ForEach(fn)
 	})
 }
 
-// Get root bucket names
+// GetRootBucketNames returns all the top level bolt.Bucket names in this DB
 func (db *DB) GetRootBucketNames() ([][]byte, error) {
 	var bucketNames [][]byte
 
@@ -56,7 +55,7 @@ func (db *DB) GetRootBucketNames() ([][]byte, error) {
 	return bucketNames, err
 }
 
-// Recursively find all bucket names
+// GetAllBucketNames recursively finds and returns all the bolt.Bucket names in this DB
 func (db *DB) GetAllBucketNames() ([][]byte, error) {
 	bucketNames, err := db.GetRootBucketNames()
 	if err != nil {
@@ -77,33 +76,31 @@ func (db *DB) GetAllBucketNames() ([][]byte, error) {
 	return allBucketNames, nil
 }
 
-// Represents an mbuckets Bucket.
+// Bucket represents a logical entity used to access a bolt.Bucket inside a DB
 type Bucket struct {
 	DB *DB
 
-	// Complete hierarchial name of the bucket.
-	// Names for buckets contained within other buckets
-	// should begin with the top level bucket name and
-	// contain all bucket names in hierarchial order
-	// separated by the Separator till the desired bucket.
-	// Names should not begin with Separator.
+	// Complete hierarchial name of the Bucket
 	Name []byte
 
-	// The bucket name separator
+	// The Bucket Name separator
 	Separator []byte
 }
 
-// Returns an mbuckets Bucket
+// Bucket returns a pointer to a Bucket in this DB
 func (db *DB) Bucket(name []byte) *Bucket {
 	return &Bucket{db, name, []byte("/")}
 }
 
-// Returns an mbuckets Bucket with custom seperator
+// BucketWithSeparator returns a pointer to a Bucket in this DB
+//
+// The name of this Bucket and all Buckets under it must be separated by the given custom separator.
+// Note that it is an error to mix different separators.
 func (db *DB) BucketWithSeparator(name []byte, seperator []byte) *Bucket {
 	return &Bucket{db, name, seperator}
 }
 
-// Perform an Update operation on the mbuckets Bucket
+// Update performs an update operation specified by function `fn` on this Bucket
 func (b *Bucket) Update(fn func(*bolt.Bucket, *bolt.Tx) error) error {
 	buckets := bytes.Split(b.Name, b.Separator)
 
@@ -132,7 +129,7 @@ func (b *Bucket) Update(fn func(*bolt.Bucket, *bolt.Tx) error) error {
 	})
 }
 
-// Perform a View operation on the mbuckets Bucket
+// View performs a view operation specified by function `fn` on this Bucket
 func (b *Bucket) View(fn func(*bolt.Bucket, *bolt.Tx) error) error {
 	buckets := bytes.Split(b.Name, b.Separator)
 
@@ -161,7 +158,7 @@ func (b *Bucket) View(fn func(*bolt.Bucket, *bolt.Tx) error) error {
 	})
 }
 
-// Delete this mbuckets Bucket
+// DeleteBucket deletes the bolt.Bucket specified by this Bucket
 func (b *Bucket) DeleteBucket() error {
 	buckets := bytes.Split(b.Name, b.Separator)
 
@@ -196,16 +193,14 @@ func (b *Bucket) DeleteBucket() error {
 	})
 }
 
-// Perform an operation on all key value pairs from mbuckets Bucket
-// The operation is defined as a function which takes in a key and value
+// Map performs a view operation specified by function `fn` on all key value pairs in this Bucket
 func (b *Bucket) Map(fn func([]byte, []byte) error) error {
 	return b.View(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		return bucket.ForEach(fn)
 	})
 }
 
-// Perform an operation on all key value pairs from mbuckets Bucket with given prefix
-// The operation is defined as a function which takes in a key and value
+// MapPrefix performs a view operation specified by function `fn` on all key value pairs in this Bucket with the given prefix
 func (b *Bucket) MapPrefix(prefix []byte, fn func([]byte, []byte) error) error {
 	return b.View(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		cursor := bucket.Cursor()
@@ -221,8 +216,7 @@ func (b *Bucket) MapPrefix(prefix []byte, fn func([]byte, []byte) error) error {
 	})
 }
 
-// Perform an operation on all key value pairs from mbuckets Bucket within given range
-// The operation is defined as a function which takes in a key and value
+// MapRange performs a view operation specified by function `fn` on all key value pairs in this Bucket within the given range
 func (b *Bucket) MapRange(min []byte, max []byte, fn func([]byte, []byte) error) error {
 	return b.View(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		cursor := bucket.Cursor()
@@ -238,20 +232,20 @@ func (b *Bucket) MapRange(min []byte, max []byte, fn func([]byte, []byte) error)
 	})
 }
 
-// Holder for key value pair
+// Item represents a holder for a key value pair
 type Item struct {
 	Key   []byte
 	Value []byte
 }
 
-// Insert a single key/value in a mbuckets Bucket
+// Insert puts a single key/value pair in the bolt.Bucket specified by this Bucket
 func (b *Bucket) Insert(key, value []byte) error {
 	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		return bucket.Put(key, value)
 	})
 }
 
-// Insert multiple key/value pairs in a mbuckets Bucket
+// InsertAll puts multiple key/value pairs in the bolt.Bucket specified by this Bucket
 func (b *Bucket) InsertAll(items []Item) error {
 	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		for _, item := range items {
@@ -264,7 +258,7 @@ func (b *Bucket) InsertAll(items []Item) error {
 	})
 }
 
-// Retrieve value for given key from mbuckets Bucket
+// Get retrieves the value for given a key from the bolt.Bucket specified by this Bucket
 func (b *Bucket) Get(key []byte) (value []byte, err error) {
 	err = b.View(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		v := bucket.Get(key)
@@ -280,7 +274,7 @@ func (b *Bucket) Get(key []byte) (value []byte, err error) {
 	return value, err
 }
 
-// Retrieve all key value pairs from mbuckets Bucket
+// GetAll retrieves all the key/value pairs from the bolt.Bucket specified by this Bucket
 func (b *Bucket) GetAll() ([]Item, error) {
 	var items []Item
 	err := b.Map(func(k, v []byte) error {
@@ -297,7 +291,7 @@ func (b *Bucket) GetAll() ([]Item, error) {
 	return items, err
 }
 
-// Retrieve all key value pairs from mbuckets Bucket with given prefix
+// GetPrefix retrieves all the key/value pairs from the bolt.Bucket specified by this Bucket with the given prefix
 func (b *Bucket) GetPrefix(prefix []byte) ([]Item, error) {
 	var items []Item
 	err := b.MapPrefix(prefix, func(k, v []byte) error {
@@ -314,7 +308,7 @@ func (b *Bucket) GetPrefix(prefix []byte) ([]Item, error) {
 	return items, err
 }
 
-// Retrieve all key value pairs from mbuckets Bucket within given range
+// GetRange retrieves all the key/value pairs from the bolt.Bucket specified by this Bucket within the given range
 func (b *Bucket) GetRange(min []byte, max []byte) ([]Item, error) {
 	var items []Item
 	err := b.MapRange(min, max, func(k, v []byte) error {
@@ -332,14 +326,14 @@ func (b *Bucket) GetRange(min []byte, max []byte) ([]Item, error) {
 	return items, err
 }
 
-// Delete given key from mbuckets Bucket
+// Delete removes the given key from the bolt.Bucket specified by this Bucket
 func (b *Bucket) Delete(key []byte) error {
 	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		return bucket.Delete(key)
 	})
 }
 
-// Get names of Buckets directly under this mbuckets Bucket
+// GetRootBucketNames returns all the top level bolt.Bucket names under the bolt.Bucket specified by this Bucket
 func (b *Bucket) GetRootBucketNames() ([][]byte, error) {
 	var names [][]byte
 
@@ -368,7 +362,7 @@ func (b *Bucket) GetRootBucketNames() ([][]byte, error) {
 	return bucketNames, nil
 }
 
-// Recursively find all bucket names under this mbuckets Bucket
+// GetAllBucketNames recursively finds and returns all the bolt.Bucket names under the bolt.Bucket specified by this Bucket
 func (b *Bucket) GetAllBucketNames() ([][]byte, error) {
 	bucketNames, err := b.GetRootBucketNames()
 	if err != nil {
