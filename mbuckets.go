@@ -1,9 +1,7 @@
-/*
-Package mbuckets provides a thin wrapper over Bolt DB.
-It allows easy operations on nested buckets.
-
-See https://github.com/boltdb/bolt for Bolt DB.
-*/
+// Package mbuckets provides a thin wrapper over Bolt DB.
+// It allows easy operations on nested buckets.
+//
+// See https://github.com/boltdb/bolt for Bolt DB.
 
 package mbuckets
 
@@ -49,7 +47,7 @@ func (db *DB) GetRootBucketNames() ([][]byte, error) {
 	var bucketNames [][]byte
 
 	err := db.Map(func(name []byte, _ *bolt.Bucket) error {
-		bucketName := make([]byte, 0, len(name))
+		bucketName := make([]byte, len(name))
 		copy(bucketName, name)
 		bucketNames = append(bucketNames, bucketName)
 		return nil
@@ -274,7 +272,7 @@ func (b *Bucket) Get(key []byte) (value []byte, err error) {
 			return fmt.Errorf("Key not found: %s", key)
 		}
 
-		value = make([]byte, 0, len(v))
+		value = make([]byte, len(v))
 		copy(value, v)
 		return nil
 	})
@@ -287,9 +285,9 @@ func (b *Bucket) GetAll() ([]Item, error) {
 	var items []Item
 	err := b.Map(func(k, v []byte) error {
 		if v != nil {
-			key := make([]byte, 0, len(k))
+			key := make([]byte, len(k))
 			copy(key, k)
-			value := make([]byte, 0, len(v))
+			value := make([]byte, len(v))
 			copy(value, v)
 			items = append(items, Item{key, value})
 		}
@@ -304,9 +302,9 @@ func (b *Bucket) GetPrefix(prefix []byte) ([]Item, error) {
 	var items []Item
 	err := b.MapPrefix(prefix, func(k, v []byte) error {
 		if v != nil {
-			key := make([]byte, 0, len(k))
+			key := make([]byte, len(k))
 			copy(key, k)
-			value := make([]byte, 0, len(v))
+			value := make([]byte, len(v))
 			copy(value, v)
 			items = append(items, Item{key, value})
 		}
@@ -321,9 +319,9 @@ func (b *Bucket) GetRange(min []byte, max []byte) ([]Item, error) {
 	var items []Item
 	err := b.MapRange(min, max, func(k, v []byte) error {
 		if v != nil {
-			key := make([]byte, 0, len(k))
+			key := make([]byte, len(k))
 			copy(key, k)
-			value := make([]byte, 0, len(v))
+			value := make([]byte, len(v))
 			copy(value, v)
 			items = append(items, Item{key, value})
 		}
@@ -347,7 +345,7 @@ func (b *Bucket) GetRootBucketNames() ([][]byte, error) {
 
 	err := b.Map(func(key []byte, value []byte) error {
 		if value == nil {
-			name := make([]byte, 0, len(key))
+			name := make([]byte, len(key))
 			copy(name, key)
 			names = append(names, name)
 		}
