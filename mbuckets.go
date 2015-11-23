@@ -95,7 +95,7 @@ func (db *DB) Bucket(name []byte) *Bucket {
 // BucketWithSeparator returns a pointer to a Bucket in this DB
 //
 // The name of this Bucket and all Buckets under it must be separated by the given custom separator.
-// Note that it is an error to mix different separators.
+// Note that it is an error to mix different separators and can lead to unexpected behavior.
 func (db *DB) BucketWithSeparator(name []byte, seperator []byte) *Bucket {
 	return &Bucket{db, name, seperator}
 }
