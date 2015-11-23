@@ -66,6 +66,8 @@ func (db *DB) GetAllBucketNames() ([][]byte, error) {
 
 	for _, bucketName := range bucketNames {
 		bucket := db.Bucket(bucketName)
+		allBucketNames = append(allBucketNames, bucketName)
+
 		subBucketNames, err := bucket.GetAllBucketNames()
 		if err != nil {
 			return allBucketNames, err
@@ -364,6 +366,8 @@ func (b *Bucket) GetRootBucketNames() ([][]byte, error) {
 
 // GetAllBucketNames recursively finds and returns all the bolt.Bucket names under the bolt.Bucket specified by this Bucket
 func (b *Bucket) GetAllBucketNames() ([][]byte, error) {
+	var allBucketNames [][]byte
+
 	bucketNames, err := b.GetRootBucketNames()
 	if err != nil {
 		return nil, err
@@ -375,11 +379,12 @@ func (b *Bucket) GetAllBucketNames() ([][]byte, error) {
 	for numBucketsToProcess > 0 {
 		bucketName, bucketNames = bucketNames[0], bucketNames[1:]
 		numBucketsToProcess--
+		allBucketNames = append(allBucketNames, bucketName)
 
 		bucket := b.DB.BucketWithSeparator(bucketName, b.Separator)
 		subBucketNames, err := bucket.GetRootBucketNames()
 		if err != nil {
-			return bucketNames, err
+			return allBucketNames, err
 		}
 
 		if subBucketNames != nil && len(subBucketNames) > 0 {
@@ -388,5 +393,5 @@ func (b *Bucket) GetAllBucketNames() ([][]byte, error) {
 		}
 	}
 
-	return bucketNames, nil
+	return allBucketNames, nil
 }
