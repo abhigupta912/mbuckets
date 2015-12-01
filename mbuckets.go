@@ -459,7 +459,7 @@ func (b *Bucket) Delete(key []byte) error {
 	})
 }
 
-// DeleteStrign is a convenience wrapper over Delete for string key
+// DeleteString is a convenience wrapper over Delete for string key
 func (b *Bucket) DeleteString(key string) error {
 	return b.Delete([]byte(key))
 }
