@@ -79,7 +79,7 @@ func TestCreateBucket(t *testing.T) {
 
 	bucketNames, err := db.GetAllBucketNames()
 	if err != nil {
-		t.Error("Unable to get root bucket names from db", err.Error())
+		t.Error("Unable to get bucket names from db", err.Error())
 	}
 
 	bucketsExpected := make([][]byte, 0, 2)
@@ -87,7 +87,7 @@ func TestCreateBucket(t *testing.T) {
 	bucketsExpected = append(bucketsExpected, bucketName2)
 
 	if len(bucketNames) != len(bucketsExpected) {
-		t.Error("Unable to retrieve some root bucket names from db")
+		t.Error("Unable to retrieve some bucket names from db")
 	}
 
 	numMatches := 0
@@ -101,7 +101,59 @@ func TestCreateBucket(t *testing.T) {
 	}
 
 	if numMatches != len(bucketsExpected) {
-		t.Error("Not all root buckets retrieved match the ones created in db")
+		t.Error("Not all bucket names retrieved match the ones created in db")
+	}
+}
+
+func TestCreateBucketWithSeparator(t *testing.T) {
+	db, err := NewTestDB()
+	if err != nil {
+		t.Error("Unable to open test database. ", err.Error())
+	}
+	defer db.Close()
+
+	separator := []byte(":")
+	bucketName1 := []byte("Bucket1")
+	bucket1 := db.Bucket(bucketName1).WithSeparator(separator)
+
+	bucketName2 := []byte("Bucket1:Bucket2")
+	bucket2 := db.Bucket(bucketName2).WithSeparator(separator)
+
+	err = bucket1.CreateBucket()
+	if err != nil {
+		t.Error("Unable to create bucket. ", err.Error())
+	}
+
+	err = bucket2.CreateBucket()
+	if err != nil {
+		t.Error("Unable to create bucket. ", err.Error())
+	}
+
+	bucketNames, err := db.GetAllBucketNamesWithSeparator(separator)
+	if err != nil {
+		t.Error("Unable to get bucket names from db", err.Error())
+	}
+
+	bucketsExpected := make([][]byte, 0, 2)
+	bucketsExpected = append(bucketsExpected, bucketName1)
+	bucketsExpected = append(bucketsExpected, bucketName2)
+
+	if len(bucketNames) != len(bucketsExpected) {
+		t.Error("Unable to retrieve some bucket names from db")
+	}
+
+	numMatches := 0
+	for _, bucketName := range bucketNames {
+		for _, bucket := range bucketsExpected {
+			if bytes.Compare(bucketName, bucket) == 0 {
+				numMatches++
+				break
+			}
+		}
+	}
+
+	if numMatches != len(bucketsExpected) {
+		t.Error("Not all bucket names retrieved match the ones created in db")
 	}
 }
 

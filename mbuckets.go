@@ -9,6 +9,7 @@ package mbuckets
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -22,6 +23,20 @@ type DB struct {
 // Open creates/opens a bolt.DB at specified path, and returns a DB enclosing the same
 func Open(path string) (*DB, error) {
 	database, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	if err != nil {
+		return nil, err
+	}
+
+	return &DB{database}, nil
+}
+
+// OpenWith creates/opens a bolt.DB at specified path with given permissions and options, and returns a DB enclosing the same
+func OpenWith(path string, mode os.FileMode, options *bolt.Options) (*DB, error) {
+	if options == nil {
+		options = &bolt.Options{Timeout: 1 * time.Second}
+	}
+
+	database, err := bolt.Open(path, mode, options)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +93,29 @@ func (db *DB) GetAllBucketNames() ([][]byte, error) {
 	return allBucketNames, nil
 }
 
+// GetAllBucketNamesWithSeparator recursively finds and returns all the bolt.Bucket names in this DB using specified separator
+func (db *DB) GetAllBucketNamesWithSeparator(separator []byte) ([][]byte, error) {
+	bucketNames, err := db.GetRootBucketNames()
+	if err != nil {
+		return nil, err
+	}
+
+	var allBucketNames [][]byte
+
+	for _, bucketName := range bucketNames {
+		bucket := db.Bucket(bucketName).WithSeparator(separator)
+		allBucketNames = append(allBucketNames, bucketName)
+
+		subBucketNames, err := bucket.GetAllBucketNames()
+		if err != nil {
+			return allBucketNames, err
+		}
+		allBucketNames = append(allBucketNames, subBucketNames...)
+	}
+
+	return allBucketNames, nil
+}
+
 // Bucket represents a logical entity used to access a bolt.Bucket inside a DB
 type Bucket struct {
 	DB *DB
@@ -94,12 +132,18 @@ func (db *DB) Bucket(name []byte) *Bucket {
 	return &Bucket{db, name, []byte("/")}
 }
 
-// BucketWithSeparator returns a pointer to a Bucket in this DB
+// BucketString is a convenience wrapper over Bucket for string name
+func (db *DB) BucketString(name string) *Bucket {
+	return db.Bucket([]byte(name))
+}
+
+// WithSeparator overrides the separator for this Bucket with the given separator and returns a pointer to this Bucket.
 //
 // The name of this Bucket and all Buckets under it must be separated by the given custom separator.
 // Note that it is an error to mix different separators and can lead to unexpected behavior.
-func (db *DB) BucketWithSeparator(name, seperator []byte) *Bucket {
-	return &Bucket{db, name, seperator}
+func (b *Bucket) WithSeparator(separator []byte) *Bucket {
+	b.Separator = separator
+	return b
 }
 
 // Update performs an update operation specified by function `fn` on this Bucket
@@ -162,7 +206,7 @@ func (b *Bucket) View(fn func(*bolt.Bucket, *bolt.Tx) error) error {
 
 // CreateBucket cretes the bolt.Bucket specified by this Bucket
 func (b *Bucket) CreateBucket() error {
-	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
+	return b.Update(func(*bolt.Bucket, *bolt.Tx) error {
 		return nil
 	})
 }
@@ -466,7 +510,7 @@ func (b *Bucket) GetAllBucketNames() ([][]byte, error) {
 		numBucketsToProcess--
 		allBucketNames = append(allBucketNames, bucketName)
 
-		bucket := b.DB.BucketWithSeparator(bucketName, b.Separator)
+		bucket := b.DB.Bucket(bucketName).WithSeparator(b.Separator)
 		subBucketNames, err := bucket.GetRootBucketNames()
 		if err != nil {
 			return allBucketNames, err
