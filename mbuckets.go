@@ -1,6 +1,6 @@
 /*
 Package mbuckets provides a thin wrapper over Bolt DB.
-It allows easy operations on nested buckets.
+It allows easy operations on multi-level (nested) buckets.
 
 See https://github.com/boltdb/bolt for Bolt DB.
 */
@@ -98,7 +98,7 @@ func (db *DB) Bucket(name []byte) *Bucket {
 //
 // The name of this Bucket and all Buckets under it must be separated by the given custom separator.
 // Note that it is an error to mix different separators and can lead to unexpected behavior.
-func (db *DB) BucketWithSeparator(name []byte, seperator []byte) *Bucket {
+func (db *DB) BucketWithSeparator(name, seperator []byte) *Bucket {
 	return &Bucket{db, name, seperator}
 }
 
@@ -157,6 +157,13 @@ func (b *Bucket) View(fn func(*bolt.Bucket, *bolt.Tx) error) error {
 		}
 
 		return fn(bucket, tx)
+	})
+}
+
+// CreateBucket cretes the bolt.Bucket specified by this Bucket
+func (b *Bucket) CreateBucket() error {
+	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
+		return nil
 	})
 }
 
@@ -219,7 +226,7 @@ func (b *Bucket) MapPrefix(prefix []byte, fn func([]byte, []byte) error) error {
 }
 
 // MapRange performs a view operation specified by function `fn` on all key value pairs in this Bucket within the given range
-func (b *Bucket) MapRange(min []byte, max []byte, fn func([]byte, []byte) error) error {
+func (b *Bucket) MapRange(min, max []byte, fn func([]byte, []byte) error) error {
 	return b.View(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		cursor := bucket.Cursor()
 
@@ -247,11 +254,29 @@ func (b *Bucket) Insert(key, value []byte) error {
 	})
 }
 
+// InsertString is a convenience wrapper over Insert for string key value pair
+func (b *Bucket) InsertString(key, value string) error {
+	return b.Insert([]byte(key), []byte(value))
+}
+
 // InsertAll puts multiple key/value pairs in the bolt.Bucket specified by this Bucket
 func (b *Bucket) InsertAll(items []Item) error {
 	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		for _, item := range items {
 			err := bucket.Put(item.Key, item.Value)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// InsertAllString is a convenience method to Insert string key value pairs
+func (b *Bucket) InsertAllString(items map[string]string) error {
+	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
+		for key, value := range items {
+			err := bucket.Put([]byte(key), []byte(value))
 			if err != nil {
 				return err
 			}
@@ -276,6 +301,21 @@ func (b *Bucket) Get(key []byte) (value []byte, err error) {
 	return value, err
 }
 
+// GetString is a convenience wrapper over Get for string key value pair
+func (b *Bucket) GetString(key string) (value string, err error) {
+	err = b.View(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
+		v := bucket.Get([]byte(key))
+		if v == nil {
+			return fmt.Errorf("Key not found: %s", key)
+		}
+
+		value = string(v)
+		return nil
+	})
+
+	return value, err
+}
+
 // GetAll retrieves all the key/value pairs from the bolt.Bucket specified by this Bucket
 func (b *Bucket) GetAll() ([]Item, error) {
 	var items []Item
@@ -286,6 +326,19 @@ func (b *Bucket) GetAll() ([]Item, error) {
 			value := make([]byte, len(v))
 			copy(value, v)
 			items = append(items, Item{key, value})
+		}
+		return nil
+	})
+
+	return items, err
+}
+
+// GetAllString is a convenience method to GetAll string key value pairs
+func (b *Bucket) GetAllString() (map[string]string, error) {
+	items := make(map[string]string)
+	err := b.Map(func(k, v []byte) error {
+		if v != nil {
+			items[string(k)] = string(v)
 		}
 		return nil
 	})
@@ -310,8 +363,21 @@ func (b *Bucket) GetPrefix(prefix []byte) ([]Item, error) {
 	return items, err
 }
 
+// GetPrefixString is a convenience method to GetPrefix for string key value pairs
+func (b *Bucket) GetPrefixString(prefix string) (map[string]string, error) {
+	items := make(map[string]string)
+	err := b.MapPrefix([]byte(prefix), func(k, v []byte) error {
+		if v != nil {
+			items[string(k)] = string(v)
+		}
+		return nil
+	})
+
+	return items, err
+}
+
 // GetRange retrieves all the key/value pairs from the bolt.Bucket specified by this Bucket within the given range
-func (b *Bucket) GetRange(min []byte, max []byte) ([]Item, error) {
+func (b *Bucket) GetRange(min, max []byte) ([]Item, error) {
 	var items []Item
 	err := b.MapRange(min, max, func(k, v []byte) error {
 		if v != nil {
@@ -328,11 +394,30 @@ func (b *Bucket) GetRange(min []byte, max []byte) ([]Item, error) {
 	return items, err
 }
 
+// GetRangeString is a convenience method to GetRange for string key value pairs
+func (b *Bucket) GetRangeString(min, max string) (map[string]string, error) {
+	items := make(map[string]string)
+	err := b.MapRange([]byte(min), []byte(max), func(k, v []byte) error {
+		if v != nil {
+			items[string(k)] = string(v)
+		}
+
+		return nil
+	})
+
+	return items, err
+}
+
 // Delete removes the given key from the bolt.Bucket specified by this Bucket
 func (b *Bucket) Delete(key []byte) error {
 	return b.Update(func(bucket *bolt.Bucket, tx *bolt.Tx) error {
 		return bucket.Delete(key)
 	})
+}
+
+// DeleteStrign is a convenience wrapper over Delete for string key
+func (b *Bucket) DeleteString(key string) error {
+	return b.Delete([]byte(key))
 }
 
 // GetRootBucketNames returns all the top level bolt.Bucket names under the bolt.Bucket specified by this Bucket
