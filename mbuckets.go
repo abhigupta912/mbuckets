@@ -231,7 +231,7 @@ func (b *Bucket) DeleteBucket() error {
 			}
 
 			if idx == len(buckets)-1 {
-				return bucket.DeleteBucket(buckets[0])
+				return bucket.DeleteBucket(bucketName)
 			}
 
 			subBucket := bucket.Bucket(bucketName)
