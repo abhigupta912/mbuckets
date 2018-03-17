@@ -1117,6 +1117,100 @@ func TestGetRootBucketNamesFromDB(t *testing.T) {
 	}
 }
 
+func TestGetRootBucketNamesUnderBucket(t *testing.T) {
+	t.Log("Creating a new test db")
+	db, err := NewTestDB()
+	if err != nil {
+		t.Errorf("Unable to create the test db. Error: %s", err.Error())
+	}
+	defer db.Close()
+	t.Log("Successfully created a new test db")
+
+	bucketName1 := []byte("Bucket1")
+	t.Logf("Creating bucket: %s", bucketName1)
+	bucket1 := db.Bucket(bucketName1)
+
+	key1 := []byte("key1")
+	value1 := []byte("value1")
+
+	t.Logf("Inserting Key: %s, Value: %s in bucket: %s", key1, value1, bucketName1)
+	err = bucket1.Insert(key1, value1)
+	if err != nil {
+		t.Errorf("Unable to insert key/value pair in bucket. Error: %s", err.Error())
+	}
+
+	bucketName2 := []byte("Bucket2")
+	t.Logf("Creating bucket: %s", bucketName2)
+	bucket2 := db.Bucket(bucketName2)
+
+	key2 := []byte("key2")
+	value2 := []byte("value2")
+
+	t.Logf("Inserting Key: %s, Value: %s in bucket: %s", key2, value2, bucketName2)
+	err = bucket2.Insert(key2, value2)
+	if err != nil {
+		t.Errorf("Unable to insert key/value pair in bucket. Error: %s", err.Error())
+	}
+
+	bucketName3 := []byte("Bucket1/Bucket3")
+	t.Logf("Creating bucket: %s", bucketName3)
+	bucket3 := db.Bucket(bucketName3)
+
+	key3 := []byte("key3")
+	value3 := []byte("value3")
+
+	t.Logf("Inserting Key: %s, Value: %s in bucket: %s", key3, value3, bucketName3)
+	err = bucket3.Insert(key3, value3)
+	if err != nil {
+		t.Errorf("Unable to insert key/value pair in bucket. Error: %s", err.Error())
+	}
+
+	bucketName4 := []byte("Bucket1/Bucket4")
+	t.Logf("Creating bucket: %s", bucketName4)
+	bucket4 := db.Bucket(bucketName4)
+
+	key4 := []byte("key4")
+	value4 := []byte("value4")
+
+	t.Logf("Inserting Key: %s, Value: %s in bucket: %s", key4, value4, bucketName4)
+	err = bucket4.Insert(key4, value4)
+	if err != nil {
+		t.Errorf("Unable to insert key/value pair in bucket. Error: %s", err.Error())
+	}
+
+	t.Logf("Retrieving root bucket names under bucket: %s", bucket1)
+	bucketNames, err := bucket1.GetRootBucketNames()
+	if err != nil {
+		t.Errorf("Unable to get root bucket names under bucket: %s. Error: %s", bucketName1, err.Error())
+	}
+
+	for _, bucketName := range bucketNames {
+		t.Logf("Found bucket: %s", bucketName)
+	}
+
+	bucketsExpected := make([][]byte, 0, 2)
+	bucketsExpected = append(bucketsExpected, bucketName3)
+	bucketsExpected = append(bucketsExpected, bucketName4)
+
+	if len(bucketNames) != len(bucketsExpected) {
+		t.Error("Number of root buckets under bucket do not match the expected count")
+	}
+
+	numMatches := 0
+	for _, bucketName := range bucketNames {
+		for _, bucket := range bucketsExpected {
+			if bytes.Compare(bucketName, bucket) == 0 {
+				numMatches++
+				break
+			}
+		}
+	}
+
+	if numMatches != len(bucketsExpected) {
+		t.Error("Not all root buckets retrieved from bucket match the ones created")
+	}
+}
+
 func TestGetAllBucketNamesFromDB(t *testing.T) {
 	t.Log("Creating a new test db")
 	db, err := NewTestDB()
