@@ -484,10 +484,11 @@ func (b *Bucket) GetRootBucketNames() ([][]byte, error) {
 
 	bucketNames := make([][]byte, 0, len(names))
 	for _, name := range names {
-		bucketName := bytes.NewBuffer(b.Name)
-		bucketName.Write(b.Separator)
-		bucketName.Write(name)
-		bucketNames = append(bucketNames, bucketName.Bytes())
+		bucketName := []byte{}
+		bucketName = append(bucketName, b.Name...)
+		bucketName = append(bucketName, b.Separator...)
+		bucketName = append(bucketName, name...)
+		bucketNames = append(bucketNames, bucketName)
 	}
 
 	return bucketNames, nil
